@@ -244,6 +244,60 @@
   .badge.no { background: var(--red-bg); color: var(--red-text); border: 1px solid var(--red-border); }
   .badge.neutral { background: var(--neutral-bg); color: var(--neutral-text); border: 1px solid var(--neutral-border); }
 
+  .hybrid-chip {
+    display: none;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    color: var(--navy);
+  }
+
+  .notice-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--neutral-bg);
+    border: 1px solid var(--neutral-border);
+    color: var(--neutral-text);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    margin: 0 0 20px;
+  }
+
+  .hybrid-block {
+    display: none;
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    background: var(--neutral-bg);
+    border: 1px solid var(--neutral-border);
+    border-radius: 10px;
+  }
+  .hybrid-block label { margin-bottom: 6px; color: var(--navy-light); }
+  .hybrid-block select {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+  }
+  .hybrid-hint { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.45; }
+
+  .hybrid-select-inline {
+    padding: 6px 8px;
+    font-size: 12.5px;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--text);
+  }
+
   .copy-btn {
     background: transparent;
     border: 1.5px solid var(--border);
@@ -389,6 +443,11 @@
     <h1 class="page-title">Consulta de Regime Tributário</h1>
     <p class="page-subtitle">Digite um CNPJ para saber o regime tributário da empresa.</p>
 
+    <div class="notice-banner">
+      <span>⚠️</span>
+      <span>Empresas do Simples Nacional podem optar pelo <strong>Regime Híbrido</strong> (recolher CBS/IBS por fora do DAS). Primeira janela de opção: <strong>setembro/2026</strong>, define a apuração do 1º semestre de 2027. MEI não tem acesso a essa opção.</span>
+    </div>
+
     <div class="card">
       <div class="tabs">
         <button type="button" class="tab-btn active" id="tabSingle">Consulta individual</button>
@@ -406,11 +465,25 @@
 
         <div class="result" id="result">
           <div class="result-header">
-            <div id="badge" class="badge"></div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <div id="badge" class="badge"></div>
+              <span id="hybridChip" class="hybrid-chip">★ Regime Híbrido</span>
+            </div>
             <button type="button" class="copy-btn" id="copyBtn">Copiar resultado</button>
           </div>
           <p class="consulted-at" id="consultedAt"></p>
           <p class="regime-note" id="regimeNote"></p>
+
+          <div class="hybrid-block" id="hybridBlock">
+            <label for="hybridSelect">Regime híbrido (CBS/IBS recolhidos por fora do DAS)</label>
+            <select id="hybridSelect">
+              <option value="">Não informado</option>
+              <option value="sim">Sim, optante pelo híbrido</option>
+              <option value="nao">Não, permanece no DAS único</option>
+            </select>
+            <p class="hybrid-hint">Opção declarada pela empresa perante a Receita — ainda não há consulta pública automática pra isso (a opção só passa a valer em 2027). Informe manualmente com base no que o cliente decidiu. Primeira janela: setembro/2026.</p>
+          </div>
+
           <dl class="info-grid" id="infoGrid"></dl>
         </div>
       </div>
@@ -433,7 +506,7 @@
           </div>
           <div class="batch-table-wrap">
             <table class="batch-table">
-              <thead><tr><th>CNPJ</th><th>Razão social</th><th>Regime</th><th>Situação</th></tr></thead>
+              <thead><tr><th>CNPJ</th><th>Razão social</th><th>Regime</th><th>Híbrido</th><th>Situação</th></tr></thead>
               <tbody id="batchTableBody"></tbody>
             </table>
           </div>
@@ -472,6 +545,9 @@ const copyBtn = document.getElementById('copyBtn');
 const historyCard = document.getElementById('historyCard');
 const historyList = document.getElementById('historyList');
 const clearHistoryBtn = document.getElementById('clearHistory');
+const hybridChip = document.getElementById('hybridChip');
+const hybridBlock = document.getElementById('hybridBlock');
+const hybridSelect = document.getElementById('hybridSelect');
 
 const tabSingleBtn = document.getElementById('tabSingle');
 const tabBatchBtn = document.getElementById('tabBatch');
@@ -487,11 +563,40 @@ const batchTableBody = document.getElementById('batchTableBody');
 const batchCopyBtn = document.getElementById('batchCopyBtn');
 
 const HISTORY_KEY = 'ghm_cnpj_history';
+const HYBRID_KEY = 'ghm_hibrido_overrides';
 const BATCH_MAX = 40;
 const BATCH_DELAY_MS = 350;
 let lastData = null;
 let lastRegime = null;
 let lastBatchResults = [];
+
+function loadHybridOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(HYBRID_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function getHybridOverride(digits) {
+  return loadHybridOverrides()[digits] || '';
+}
+
+function setHybridOverride(digits, value) {
+  const map = loadHybridOverrides();
+  if (value) map[digits] = value; else delete map[digits];
+  try {
+    localStorage.setItem(HYBRID_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
+function hybridLabel(value) {
+  if (value === 'sim') return 'Sim, optante pelo híbrido';
+  if (value === 'nao') return 'Não, permanece no DAS único';
+  return 'Não informado';
+}
 
 function switchTab(tab) {
   const isSingle = tab === 'single';
@@ -686,14 +791,24 @@ function renderBatchResults(results) {
     if (r.status !== 'ok') {
       return `<tr>
         <td>${escapeHtml(maskCnpj(r.digits))}</td>
-        <td colspan="3" class="regime-error">${escapeHtml(r.message)}</td>
+        <td colspan="4" class="regime-error">${escapeHtml(r.message)}</td>
       </tr>`;
     }
     const regimeClass = r.regime.style === 'yes' ? 'regime-yes' : 'regime-neutral';
+    let hybridCell = '—';
+    if (r.regime.elegivelHibrido) {
+      const saved = getHybridOverride(r.digits);
+      hybridCell = `<select class="hybrid-select-inline" data-cnpj="${escapeHtml(r.digits)}">
+        <option value="" ${saved === '' ? 'selected' : ''}>Não informado</option>
+        <option value="sim" ${saved === 'sim' ? 'selected' : ''}>Sim</option>
+        <option value="nao" ${saved === 'nao' ? 'selected' : ''}>Não</option>
+      </select>`;
+    }
     return `<tr>
       <td>${escapeHtml(maskCnpj(r.digits))}</td>
       <td>${escapeHtml(r.data.razao_social || '—')}</td>
       <td class="${regimeClass}">${escapeHtml(r.regime.label)}</td>
+      <td>${hybridCell}</td>
       <td>${escapeHtml(r.data.descricao_situacao_cadastral || '—')}</td>
     </tr>`;
   }).join('');
@@ -701,12 +816,18 @@ function renderBatchResults(results) {
   batchResultsEl.style.display = 'block';
 }
 
+batchTableBody.addEventListener('change', (e) => {
+  const sel = e.target.closest('.hybrid-select-inline');
+  if (!sel) return;
+  setHybridOverride(sel.dataset.cnpj, sel.value);
+});
+
 function getRegime(data) {
   if (data.opcao_pelo_mei) {
-    return { label: 'MEI (Microempreendedor Individual)', style: 'yes', since: data.data_opcao_pelo_mei, source: 'mei' };
+    return { label: 'MEI (Microempreendedor Individual)', style: 'yes', since: data.data_opcao_pelo_mei, source: 'mei', elegivelHibrido: false };
   }
   if (data.opcao_pelo_simples) {
-    return { label: 'Simples Nacional', style: 'yes', since: data.data_opcao_pelo_simples, source: 'simples' };
+    return { label: 'Simples Nacional', style: 'yes', since: data.data_opcao_pelo_simples, source: 'simples', elegivelHibrido: true };
   }
 
   const historico = Array.isArray(data.regime_tributario) ? data.regime_tributario : [];
@@ -718,10 +839,11 @@ function getRegime(data) {
       since: null,
       source: 'ecf',
       refYear: maisRecente.ano,
+      elegivelHibrido: false,
     };
   }
 
-  return { label: 'Regime não informado', style: 'neutral', since: null, source: 'unknown' };
+  return { label: 'Regime não informado', style: 'neutral', since: null, source: 'unknown', elegivelHibrido: false };
 }
 
 function renderResult(data, regime) {
@@ -763,8 +885,25 @@ function renderResult(data, regime) {
     .map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`)
     .join('');
 
+  if (regime.elegivelHibrido) {
+    const digits = (data.cnpj || '').replace(/\D/g, '');
+    hybridBlock.style.display = 'block';
+    hybridSelect.value = getHybridOverride(digits);
+    hybridChip.style.display = hybridSelect.value === 'sim' ? 'inline-flex' : 'none';
+  } else {
+    hybridBlock.style.display = 'none';
+    hybridChip.style.display = 'none';
+  }
+
   resultEl.style.display = 'block';
 }
+
+hybridSelect.addEventListener('change', () => {
+  if (!lastData) return;
+  const digits = (lastData.cnpj || '').replace(/\D/g, '');
+  setHybridOverride(digits, hybridSelect.value);
+  hybridChip.style.display = hybridSelect.value === 'sim' ? 'inline-flex' : 'none';
+});
 
 async function copyText(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -797,11 +936,17 @@ copyBtn.addEventListener('click', async () => {
     `CNPJ: ${maskCnpj(lastData.cnpj || '')}`,
     `Razão social: ${lastData.razao_social || '—'}`,
     `Regime tributário: ${lastRegime.label}`,
+  ];
+  if (lastRegime.elegivelHibrido) {
+    const digits = (lastData.cnpj || '').replace(/\D/g, '');
+    lines.push(`Regime híbrido (CBS/IBS por fora do DAS): ${hybridLabel(getHybridOverride(digits))}`);
+  }
+  lines.push(
     `Situação cadastral: ${lastData.descricao_situacao_cadastral || '—'}`,
     `Consulta realizada em: ${new Date().toLocaleString('pt-BR')}`,
     '',
     'GHM Contabilidade — Hugo Raphael Nunes De Santana Oliveira (CRC-RN 010524/O-0)',
-  ];
+  );
   const ok = await copyText(lines.join('\n'));
   if (ok) {
     copyBtn.textContent = 'Copiado!';
@@ -817,12 +962,13 @@ copyBtn.addEventListener('click', async () => {
 
 batchCopyBtn.addEventListener('click', async () => {
   if (lastBatchResults.length === 0) return;
-  const lines = ['CNPJ\tRazão Social\tRegime\tSituação'];
+  const lines = ['CNPJ\tRazão Social\tRegime\tHíbrido\tSituação'];
   lastBatchResults.forEach((r) => {
     if (r.status === 'ok') {
-      lines.push([maskCnpj(r.digits), r.data.razao_social || '—', r.regime.label, r.data.descricao_situacao_cadastral || '—'].join('\t'));
+      const hybridVal = r.regime.elegivelHibrido ? hybridLabel(getHybridOverride(r.digits)) : '—';
+      lines.push([maskCnpj(r.digits), r.data.razao_social || '—', r.regime.label, hybridVal, r.data.descricao_situacao_cadastral || '—'].join('\t'));
     } else {
-      lines.push([maskCnpj(r.digits), r.message, '', ''].join('\t'));
+      lines.push([maskCnpj(r.digits), r.message, '', '', ''].join('\t'));
     }
   });
   lines.push('', 'GHM Contabilidade — Hugo Raphael Nunes De Santana Oliveira (CRC-RN 010524/O-0)');
