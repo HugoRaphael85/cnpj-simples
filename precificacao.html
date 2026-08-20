@@ -289,7 +289,7 @@
     </div>
 
     <div class="card">
-      <p class="card-title">2. Tributos embutidos no preço (IRPJ/CSLL)</p>
+      <p class="card-title">2. Tributos embutidos no preço (IRPJ/CSLL + ICMS)</p>
       <div class="field">
         <label for="regime">Regime tributário</label>
         <select id="regime">
@@ -315,6 +315,11 @@
         </div>
       </div>
       <p class="field-hint" id="regimeHint"></p>
+      <div class="field" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <label for="icms">ICMS sobre a venda (%)</label>
+        <input type="number" id="icms" step="0.01" min="0" placeholder="0,00">
+        <p class="field-hint">Ainda vigente hoje (só é substituído pelo IBS entre 2029 e 2033). Varia por estado, produto e benefícios fiscais — ex.: bar/restaurante no RN, com crédito presumido de 13%, fica com carga líquida de ICMS de ~4%. Preencha 0 se não incidir (ex.: serviço tributado só por ISS, fora do escopo desta calculadora).</p>
+      </div>
     </div>
 
     <div class="card">
@@ -391,6 +396,7 @@ const segmentoSelect = document.getElementById('segmento');
 const regimeHintEl = document.getElementById('regimeHint');
 const irpjInput = document.getElementById('irpj');
 const csllInput = document.getElementById('csll');
+const icmsInput = document.getElementById('icms');
 const categoriaSelect = document.getElementById('categoria');
 const cbsInput = document.getElementById('cbs');
 const ibsInput = document.getElementById('ibs');
@@ -482,6 +488,7 @@ function calcular() {
   const margemPct = parseFloat(margemInput.value) || 0;
   const irpjPct = parseFloat(irpjInput.value) || 0;
   const csllPct = parseFloat(csllInput.value) || 0;
+  const icmsPct = parseFloat(icmsInput.value) || 0;
   const reducao = REDUCOES[categoriaSelect.value].pct;
   const cbsPct = (parseFloat(cbsInput.value) || 0) * (1 - reducao);
   const ibsPct = (parseFloat(ibsInput.value) || 0) * (1 - reducao);
@@ -494,29 +501,40 @@ function calcular() {
   }
 
   const irpjCsllFrac = (irpjPct + csllPct) / 100;
-  if (irpjCsllFrac >= 1) {
-    errorEl.textContent = 'IRPJ + CSLL somados não podem chegar a 100% ou mais — não é possível precificar assim.';
-    errorEl.style.display = 'block';
-    return;
-  }
+  const icmsFrac = icmsPct / 100;
 
   const margemValor = custo * (margemPct / 100);
   const regime = regimeSelect.value;
-  let precoBase, irpjValor, csllValor;
+  let precoBase, irpjValor, csllValor, icmsValor;
 
   if (regime === 'real') {
-    // Lucro Real tributa o lucro de fato (aqui, a margem do produto) — só a margem
-    // precisa ser "regrossada" pra sobrar líquida depois do IRPJ/CSLL.
-    const margemBruta = margemValor / (1 - irpjCsllFrac);
-    precoBase = custo + margemBruta;
-    irpjValor = margemBruta * (irpjPct / 100);
-    csllValor = margemBruta * (csllPct / 100);
+    // Lucro Real tributa o lucro de fato (aqui, a margem do produto). ICMS incide
+    // sobre a receita toda, então reduz o que sobra pra cobrir custo + lucro —
+    // por isso é extraído separadamente, antes do IRPJ/CSLL entrarem na conta.
+    if (irpjCsllFrac >= 1) {
+      errorEl.textContent = 'IRPJ + CSLL somados não podem chegar a 100% ou mais — não é possível precificar assim.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    const lucroBruto = margemValor / (1 - irpjCsllFrac);
+    precoBase = (custo + lucroBruto) / (1 - icmsFrac);
+    irpjValor = lucroBruto * (irpjPct / 100);
+    csllValor = lucroBruto * (csllPct / 100);
+    icmsValor = precoBase * icmsFrac;
   } else {
-    // Lucro Presumido tributa a receita (presunção sobre o preço de venda todo).
+    // Lucro Presumido: IRPJ/CSLL e ICMS incidem todos sobre a mesma base (a receita
+    // de venda), então entram juntos no mesmo divisor.
+    const fatorDentro = 1 - irpjCsllFrac - icmsFrac;
+    if (fatorDentro <= 0) {
+      errorEl.textContent = 'Os tributos embutidos somados não podem chegar a 100% ou mais — não é possível precificar assim.';
+      errorEl.style.display = 'block';
+      return;
+    }
     const custoMaisMargem = custo + margemValor;
-    precoBase = custoMaisMargem / (1 - irpjCsllFrac);
+    precoBase = custoMaisMargem / fatorDentro;
     irpjValor = precoBase * (irpjPct / 100);
     csllValor = precoBase * (csllPct / 100);
+    icmsValor = precoBase * icmsFrac;
   }
 
   // IS integra a base do CBS/IBS (calculado primeiro, "por fora" do preço base)
@@ -537,8 +555,11 @@ function calcular() {
     [`Margem sobre custo`, formatBRL(margemValor), 'add'],
     [`IRPJ (${regimeLabel})`, formatBRL(irpjValor), 'add', irpjPct],
     [`CSLL (${regimeLabel})`, formatBRL(csllValor), 'add', csllPct],
-    ['= Preço base (antes de CBS/IBS)', formatBRL(precoBase), 'subtotal'],
   ];
+  if (icmsPct > 0) {
+    rows.push(['ICMS', formatBRL(icmsValor), 'add', icmsPct]);
+  }
+  rows.push(['= Preço base (antes de CBS/IBS)', formatBRL(precoBase), 'subtotal']);
   if (isPct > 0) {
     rows.push(['Imposto Seletivo (IS)', formatBRL(isValor), 'add', isPct]);
   }
