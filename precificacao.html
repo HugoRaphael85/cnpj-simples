@@ -319,16 +319,35 @@
 
     <div class="card">
       <p class="card-title">3. Tributos somados por fora (CBS / IBS / IS)</p>
+      <div class="field">
+        <label for="categoria">Categoria (define redução de alíquota)</label>
+        <select id="categoria">
+          <option value="padrao" selected>Padrão (sem redução)</option>
+          <option value="bar_restaurante">Alimentação preparada em bar/restaurante/lanchonete — LC 214/2025, art. 275</option>
+          <option value="hotelaria">Hotelaria, parques de diversão e temáticos — LC 214/2025, art. 281</option>
+        </select>
+      </div>
       <div class="field-row">
         <div class="field">
-          <label for="cbs">CBS (%)</label>
+          <label for="cbs">CBS — alíquota de referência (%)</label>
           <input type="number" id="cbs" step="0.01" min="0" value="9.21">
         </div>
         <div class="field">
-          <label for="ibs">IBS (%)</label>
+          <label for="ibs">IBS — alíquota de referência (%)</label>
           <input type="number" id="ibs" step="0.01" min="0" value="18.70">
         </div>
       </div>
+      <div class="field-row" id="efetivasRow" style="display:none; margin-top: 14px;">
+        <div class="field">
+          <label for="cbsEfetivo">CBS efetivo (%) <span class="locked-badge">🔒 após redução</span></label>
+          <input type="text" id="cbsEfetivo" readonly>
+        </div>
+        <div class="field">
+          <label for="ibsEfetivo">IBS efetivo (%) <span class="locked-badge">🔒 após redução</span></label>
+          <input type="text" id="ibsEfetivo" readonly>
+        </div>
+      </div>
+      <p class="field-hint" id="categoriaHint"></p>
       <div class="field checkbox-row" style="margin-top: 6px;">
         <input type="checkbox" id="temIs">
         <label for="temIs">Produto sujeito ao Imposto Seletivo (cigarro, bebida alcoólica, veículo poluente, mineração etc.)</label>
@@ -372,8 +391,13 @@ const segmentoSelect = document.getElementById('segmento');
 const regimeHintEl = document.getElementById('regimeHint');
 const irpjInput = document.getElementById('irpj');
 const csllInput = document.getElementById('csll');
+const categoriaSelect = document.getElementById('categoria');
 const cbsInput = document.getElementById('cbs');
 const ibsInput = document.getElementById('ibs');
+const efetivasRow = document.getElementById('efetivasRow');
+const cbsEfetivoInput = document.getElementById('cbsEfetivo');
+const ibsEfetivoInput = document.getElementById('ibsEfetivo');
+const categoriaHintEl = document.getElementById('categoriaHint');
 const temIsCheckbox = document.getElementById('temIs');
 const isField = document.getElementById('isField');
 const isInput = document.getElementById('is');
@@ -416,6 +440,36 @@ temIsCheckbox.addEventListener('change', () => {
   isField.style.display = temIsCheckbox.checked ? 'block' : 'none';
 });
 
+const REDUCOES = {
+  padrao: { pct: 0, hint: '' },
+  bar_restaurante: {
+    pct: 0.40,
+    hint: 'Vale só pra alimentação preparada no estabelecimento e bebidas não alcoólicas preparadas ali (LC 214/2025, art. 275). Bebida alcoólica, itens de revenda de terceiros e fornecimento por contrato/eventos ficam na alíquota cheia — calcule esses separadamente, em "Padrão". Lembre também: o art. 276 veda ao cliente pessoa jurídica o crédito desse IBS/CBS.',
+  },
+  hotelaria: {
+    pct: 0.40,
+    hint: 'Hospedagem, parques de diversão e temáticos (LC 214/2025, art. 281).',
+  },
+};
+
+function atualizarReducao() {
+  const r = REDUCOES[categoriaSelect.value];
+  categoriaHintEl.textContent = r.hint;
+  if (r.pct > 0) {
+    const cbsPct = parseFloat(cbsInput.value) || 0;
+    const ibsPct = parseFloat(ibsInput.value) || 0;
+    cbsEfetivoInput.value = (cbsPct * (1 - r.pct)).toFixed(2);
+    ibsEfetivoInput.value = (ibsPct * (1 - r.pct)).toFixed(2);
+    efetivasRow.style.display = 'flex';
+  } else {
+    efetivasRow.style.display = 'none';
+  }
+}
+categoriaSelect.addEventListener('change', atualizarReducao);
+cbsInput.addEventListener('input', atualizarReducao);
+ibsInput.addEventListener('input', atualizarReducao);
+atualizarReducao();
+
 function formatBRL(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -428,8 +482,9 @@ function calcular() {
   const margemPct = parseFloat(margemInput.value) || 0;
   const irpjPct = parseFloat(irpjInput.value) || 0;
   const csllPct = parseFloat(csllInput.value) || 0;
-  const cbsPct = parseFloat(cbsInput.value) || 0;
-  const ibsPct = parseFloat(ibsInput.value) || 0;
+  const reducao = REDUCOES[categoriaSelect.value].pct;
+  const cbsPct = (parseFloat(cbsInput.value) || 0) * (1 - reducao);
+  const ibsPct = (parseFloat(ibsInput.value) || 0) * (1 - reducao);
   const isPct = temIsCheckbox.checked ? (parseFloat(isInput.value) || 0) : 0;
 
   if (!custo || custo <= 0) {
@@ -487,8 +542,9 @@ function calcular() {
   if (isPct > 0) {
     rows.push(['Imposto Seletivo (IS)', formatBRL(isValor), 'add', isPct]);
   }
-  rows.push(['CBS', formatBRL(cbsValor), 'add', cbsPct]);
-  rows.push(['IBS', formatBRL(ibsValor), 'add', ibsPct]);
+  const sufixoReducao = reducao > 0 ? ' (reduzido 40%)' : '';
+  rows.push([`CBS${sufixoReducao}`, formatBRL(cbsValor), 'add', cbsPct]);
+  rows.push([`IBS${sufixoReducao}`, formatBRL(ibsValor), 'add', ibsPct]);
   rows.push(['= Preço final de venda', formatBRL(precoFinal), 'total']);
 
   breakdownEl.innerHTML = rows.map(([k, v, cls, pct]) => {
