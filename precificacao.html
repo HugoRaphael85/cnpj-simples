@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHM Contabilidade | Precificação com Reforma Tributária</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b8892b'/%3E%3Ctext x='32' y='41' font-family='Arial, sans-serif' font-weight='800' font-size='20' fill='%230d2b4e' text-anchor='middle'%3EGHM%3C/text%3E%3C/svg%3E">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CV93CL773W"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-CV93CL773W');
+</script>
+<style>
+  :root {
+    --bg: #eef1f5;
+    --card: #ffffff;
+    --text: #1a2433;
+    --muted: #66738a;
+    --border: #e1e5eb;
+    --navy: #0d2b4e;
+    --navy-light: #16406f;
+    --gold: #b8892b;
+    --gold-light: #d9ad4f;
+    --green-bg: #e8f6ee;
+    --green-text: #0f7a3d;
+    --green-border: #b7e3c8;
+    --red-bg: #fdeceb;
+    --red-text: #b3261e;
+    --red-border: #f3c6c2;
+    --neutral-bg: #eef1fa;
+    --neutral-text: #33468f;
+    --neutral-border: #ccd4f0;
+    --shadow: 0 4px 20px rgba(13, 43, 78, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .topbar {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    padding: 0 24px;
+  }
+  .topbar-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 22px 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .logo-mark {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--navy);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  .brand-text .name {
+    color: #fff;
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 1.2;
+    letter-spacing: 0.2px;
+  }
+  .brand-text .tagline {
+    color: rgba(255,255,255,0.7);
+    font-size: 12.5px;
+    margin-top: 2px;
+  }
+  .topbar-nav { display: flex; gap: 6px; margin-left: auto; }
+  .topbar-nav a {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 13px;
+    border-radius: 8px;
+  }
+  .topbar-nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .topbar-nav a.active { background: rgba(255,255,255,0.14); color: #fff; }
+
+  main {
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px 24px;
+  }
+  .container { width: 100%; max-width: 640px; }
+
+  .page-title { font-size: 21px; font-weight: 700; margin: 0 0 4px; color: var(--text); }
+  .page-subtitle { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
+
+  .notice-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--neutral-bg);
+    border: 1px solid var(--neutral-border);
+    color: var(--neutral-text);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    margin: 0 0 20px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 18px; }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 18px; }
+
+  label { font-size: 12.5px; font-weight: 700; color: var(--navy-light); text-transform: uppercase; letter-spacing: 0.4px; display: block; margin-bottom: 8px; }
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field-row { display: flex; gap: 14px; }
+  .field-row .field { flex: 1; }
+  .field-hint { font-size: 11.5px; color: var(--muted); margin: 6px 0 0; line-height: 1.4; }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    padding: 13px 15px;
+    font-size: 15px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    color: var(--text);
+    background: var(--card);
+    font-family: inherit;
+  }
+  input:focus, select:focus { border-color: var(--navy-light); box-shadow: 0 0 0 3px rgba(22,64,111,0.12); }
+
+  .checkbox-row { display: flex; align-items: center; gap: 10px; }
+  .checkbox-row input[type="checkbox"] { width: 17px; height: 17px; flex-shrink: 0; }
+  .checkbox-row label { margin: 0; text-transform: none; font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: 0; }
+
+  #isField { display: none; margin-top: 14px; }
+
+  button {
+    padding: 14px 22px;
+    font-size: 15px;
+    font-weight: 700;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    width: 100%;
+  }
+  button:hover { background: var(--navy-light); }
+  button:active { transform: scale(0.99); }
+
+  .error {
+    margin-top: 16px;
+    padding: 13px 15px;
+    background: var(--red-bg);
+    color: var(--red-text);
+    border: 1px solid var(--red-border);
+    border-radius: 9px;
+    font-size: 14px;
+    display: none;
+  }
+
+  .result-card { display: none; }
+  .result-final {
+    text-align: center;
+    padding: 18px 0 22px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18px;
+  }
+  .result-final .label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-final .value { font-size: 34px; font-weight: 800; color: var(--navy); margin-top: 6px; }
+  .result-final .sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+
+  .breakdown { list-style: none; margin: 0; padding: 0; }
+  .breakdown li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 14px;
+  }
+  .breakdown li:last-child { border-bottom: none; }
+  .breakdown li .k { color: var(--muted); }
+  .breakdown li .k .pct { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .breakdown li .v { font-weight: 700; }
+  .breakdown li.subtotal .v, .breakdown li.subtotal .k { color: var(--navy); }
+  .breakdown li.total { border-top: 2px solid var(--navy); margin-top: 6px; padding-top: 12px; }
+  .breakdown li.total .k, .breakdown li.total .v { font-size: 16px; color: var(--navy); font-weight: 800; }
+  .breakdown li.deduct .v { color: var(--red-text); }
+  .breakdown li.deduct .v::before { content: '− '; }
+  .breakdown li.add .v::before { content: '+ '; }
+
+  .app-footer {
+    max-width: 640px;
+    margin: 32px auto 0;
+    padding: 20px 24px 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .app-footer .accountant { font-size: 13.5px; font-weight: 700; color: var(--navy); }
+  .app-footer .crc { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .app-footer .dev-credit { font-size: 11.5px; color: var(--muted); margin-top: 10px; opacity: 0.85; }
+  .app-footer .copyright { font-size: 11px; color: var(--muted); margin-top: 14px; opacity: 0.7; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161d;
+      --card: #1c222c;
+      --text: #eef1f5;
+      --muted: #93a0b3;
+      --border: #2c3542;
+      --navy: #1a4577;
+      --navy-light: #2a5a94;
+      --green-bg: #10281c;
+      --green-text: #4ade80;
+      --green-border: #1f4d33;
+      --red-bg: #2c1614;
+      --red-text: #f87171;
+      --red-border: #55251f;
+      --neutral-bg: #1a2035;
+      --neutral-text: #8fa0f5;
+      --neutral-border: #2d3a63;
+      --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo-mark">GHM</div>
+    <div class="brand-text">
+      <div class="name">GHM Contabilidade</div>
+      <div class="tagline">Assessoria contábil e tributária</div>
+    </div>
+    <nav class="topbar-nav">
+      <a href="index.html">Consulta CNPJ</a>
+      <a href="precificacao.html" class="active">Precificação</a>
+    </nav>
+  </div>
+</div>
+
+<main>
+  <div class="container">
+    <h1 class="page-title">Precificação com a Reforma Tributária</h1>
+    <p class="page-subtitle">Custo + tributos (Lucro Presumido + CBS/IBS) + margem = preço de venda.</p>
+
+    <div class="notice-banner">
+      <span>⚠️</span>
+      <span>Alíquotas de referência estimadas pelo CGIBS (Resolução nº 14, 29/07/2026): <strong>CBS 9,21%</strong> + <strong>IBS 18,70%</strong> = 27,91%. Ainda não são definitivas — ajuste conforme a fase de transição (2027-2033) e a orientação do seu contador.</span>
+    </div>
+
+    <div class="card">
+      <p class="card-title">1. Produto</p>
+      <div class="field">
+        <label for="custo">Preço de custo (R$)</label>
+        <input type="number" id="custo" placeholder="0,00" min="0" step="0.01">
+      </div>
+      <div class="field">
+        <label for="margem">Margem de lucro sobre o custo (%)</label>
+        <input type="number" id="margem" placeholder="0,00" min="0" step="0.01">
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">2. Tributos embutidos no preço (Lucro Presumido — IRPJ/CSLL)</p>
+      <div class="field">
+        <label for="segmento">Atividade (preenche IRPJ/CSLL automaticamente)</label>
+        <select id="segmento">
+          <option value="personalizado">Personalizado (informo manualmente)</option>
+          <option value="comercio" selected>Comércio (presunção 8% IRPJ / 12% CSLL)</option>
+          <option value="servicos">Serviços em geral (presunção 32% / 32%)</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="irpj">IRPJ efetivo sobre a receita (%)</label>
+          <input type="number" id="irpj" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label for="csll">CSLL efetivo sobre a receita (%)</label>
+          <input type="number" id="csll" step="0.01" min="0">
+        </div>
+      </div>
+      <p class="field-hint">Não considera o adicional de 10% de IRPJ sobre a parcela do lucro presumido que exceder R$ 20.000/mês — confira com seu contador se o volume do produto se aproxima desse limite.</p>
+    </div>
+
+    <div class="card">
+      <p class="card-title">3. Tributos somados por fora (CBS / IBS / IS)</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="cbs">CBS (%)</label>
+          <input type="number" id="cbs" step="0.01" min="0" value="9.21">
+        </div>
+        <div class="field">
+          <label for="ibs">IBS (%)</label>
+          <input type="number" id="ibs" step="0.01" min="0" value="18.70">
+        </div>
+      </div>
+      <div class="field checkbox-row" style="margin-top: 6px;">
+        <input type="checkbox" id="temIs">
+        <label for="temIs">Produto sujeito ao Imposto Seletivo (cigarro, bebida alcoólica, veículo poluente, mineração etc.)</label>
+      </div>
+      <div class="field" id="isField">
+        <label for="is">Imposto Seletivo — IS (%)</label>
+        <input type="number" id="is" step="0.01" min="0">
+        <p class="field-hint">O IS integra a base de cálculo do CBS/IBS (é calculado primeiro, e o CBS/IBS incide sobre preço + IS).</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <button id="btnCalcular">Calcular preço de venda</button>
+      <div class="error" id="error"></div>
+    </div>
+
+    <div class="card result-card" id="resultCard">
+      <div class="result-final">
+        <div class="label">Preço final de venda</div>
+        <div class="value" id="precoFinal">R$ 0,00</div>
+        <div class="sub" id="cargaTotal"></div>
+      </div>
+      <ul class="breakdown" id="breakdown"></ul>
+    </div>
+
+    <div class="app-footer">
+      <div class="accountant">Hugo Raphael Nunes De Santana Oliveira</div>
+      <div class="crc">Contador — CRC-RN 010524/O-0</div>
+      <div class="dev-credit">Uso informativo, não substitui parecer contábil/tributário.</div>
+      <div class="copyright">© 2026 GHM Contabilidade. Todos os direitos reservados.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const custoInput = document.getElementById('custo');
+const margemInput = document.getElementById('margem');
+const segmentoSelect = document.getElementById('segmento');
+const irpjInput = document.getElementById('irpj');
+const csllInput = document.getElementById('csll');
+const cbsInput = document.getElementById('cbs');
+const ibsInput = document.getElementById('ibs');
+const temIsCheckbox = document.getElementById('temIs');
+const isField = document.getElementById('isField');
+const isInput = document.getElementById('is');
+const btnCalcular = document.getElementById('btnCalcular');
+const errorEl = document.getElementById('error');
+const resultCard = document.getElementById('resultCard');
+const precoFinalEl = document.getElementById('precoFinal');
+const cargaTotalEl = document.getElementById('cargaTotal');
+const breakdownEl = document.getElementById('breakdown');
+
+const PRESUNCOES = {
+  comercio: { irpj: 8 * 0.15, csll: 12 * 0.09 },
+  servicos: { irpj: 32 * 0.15, csll: 32 * 0.09 },
+};
+
+function aplicarSegmento() {
+  const val = segmentoSelect.value;
+  if (val === 'personalizado') return;
+  const p = PRESUNCOES[val];
+  irpjInput.value = p.irpj.toFixed(2);
+  csllInput.value = p.csll.toFixed(2);
+}
+segmentoSelect.addEventListener('change', aplicarSegmento);
+aplicarSegmento();
+
+temIsCheckbox.addEventListener('change', () => {
+  isField.style.display = temIsCheckbox.checked ? 'block' : 'none';
+});
+
+function formatBRL(v) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function calcular() {
+  errorEl.style.display = 'none';
+  resultCard.style.display = 'none';
+
+  const custo = parseFloat(custoInput.value);
+  const margemPct = parseFloat(margemInput.value) || 0;
+  const irpjPct = parseFloat(irpjInput.value) || 0;
+  const csllPct = parseFloat(csllInput.value) || 0;
+  const cbsPct = parseFloat(cbsInput.value) || 0;
+  const ibsPct = parseFloat(ibsInput.value) || 0;
+  const isPct = temIsCheckbox.checked ? (parseFloat(isInput.value) || 0) : 0;
+
+  if (!custo || custo <= 0) {
+    errorEl.textContent = 'Informe um preço de custo maior que zero.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const fatorDentro = 1 - (irpjPct + csllPct) / 100;
+  if (fatorDentro <= 0) {
+    errorEl.textContent = 'IRPJ + CSLL somados não podem chegar a 100% ou mais — não é possível precificar assim.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const margemValor = custo * (margemPct / 100);
+  const custoMaisMargem = custo + margemValor;
+
+  // Preço base: o que resta após deduzir IRPJ/CSLL (tributos "por dentro", % da receita)
+  // precisa cobrir custo + margem.
+  const precoBase = custoMaisMargem / fatorDentro;
+  const irpjValor = precoBase * (irpjPct / 100);
+  const csllValor = precoBase * (csllPct / 100);
+
+  // IS integra a base do CBS/IBS (calculado primeiro, "por fora" do preço base)
+  const isValor = precoBase * (isPct / 100);
+  const baseCbsIbs = precoBase + isValor;
+  const cbsValor = baseCbsIbs * (cbsPct / 100);
+  const ibsValor = baseCbsIbs * (ibsPct / 100);
+
+  const precoFinal = baseCbsIbs + cbsValor + ibsValor;
+  const cargaTotalPct = ((precoFinal - custo - margemValor) / precoFinal) * 100;
+
+  precoFinalEl.textContent = formatBRL(precoFinal);
+  cargaTotalEl.textContent = `Carga tributária total: ${cargaTotalPct.toFixed(2)}% do preço final · Margem líquida garantida: ${formatBRL(margemValor)}`;
+
+  const rows = [
+    ['Preço de custo', formatBRL(custo), ''],
+    [`Margem sobre custo`, formatBRL(margemValor), 'add'],
+    [`IRPJ (Presumido)`, formatBRL(irpjValor), 'add', irpjPct],
+    [`CSLL (Presumido)`, formatBRL(csllValor), 'add', csllPct],
+    ['= Preço base (antes de CBS/IBS)', formatBRL(precoBase), 'subtotal'],
+  ];
+  if (isPct > 0) {
+    rows.push(['Imposto Seletivo (IS)', formatBRL(isValor), 'add', isPct]);
+  }
+  rows.push(['CBS', formatBRL(cbsValor), 'add', cbsPct]);
+  rows.push(['IBS', formatBRL(ibsValor), 'add', ibsPct]);
+  rows.push(['= Preço final de venda', formatBRL(precoFinal), 'total']);
+
+  breakdownEl.innerHTML = rows.map(([k, v, cls, pct]) => {
+    const pctSpan = pct ? `<span class="pct">(${pct.toFixed(2)}%)</span>` : '';
+    return `<li class="${cls || ''}"><span class="k">${k}${pctSpan}</span><span class="v">${v}</span></li>`;
+  }).join('');
+
+  resultCard.style.display = 'block';
+}
+
+btnCalcular.addEventListener('click', calcular);
+</script>
+</body>
+</html>
