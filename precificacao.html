@@ -149,6 +149,8 @@
     font-family: inherit;
   }
   input:focus, select:focus { border-color: var(--navy-light); box-shadow: 0 0 0 3px rgba(22,64,111,0.12); }
+  input[readonly] { background: var(--bg); color: var(--muted); cursor: not-allowed; }
+  .locked-badge { text-transform: none; font-weight: 600; color: var(--muted); font-size: 10.5px; letter-spacing: 0; margin-left: 6px; }
 
   .checkbox-row { display: flex; align-items: center; gap: 10px; }
   .checkbox-row input[type="checkbox"] { width: 17px; height: 17px; flex-shrink: 0; }
@@ -287,26 +289,32 @@
     </div>
 
     <div class="card">
-      <p class="card-title">2. Tributos embutidos no preço (Lucro Presumido — IRPJ/CSLL)</p>
+      <p class="card-title">2. Tributos embutidos no preço (IRPJ/CSLL)</p>
       <div class="field">
-        <label for="segmento">Atividade (preenche IRPJ/CSLL automaticamente)</label>
+        <label for="regime">Regime tributário</label>
+        <select id="regime">
+          <option value="presumido" selected>Lucro Presumido</option>
+          <option value="real">Lucro Real</option>
+        </select>
+      </div>
+      <div class="field" id="atividadeField">
+        <label for="segmento">Atividade</label>
         <select id="segmento">
-          <option value="personalizado">Personalizado (informo manualmente)</option>
-          <option value="comercio" selected>Comércio (presunção 8% IRPJ / 12% CSLL)</option>
-          <option value="servicos">Serviços em geral (presunção 32% / 32%)</option>
+          <option value="comercio" selected>Comércio</option>
+          <option value="servicos">Serviços em geral</option>
         </select>
       </div>
       <div class="field-row">
         <div class="field">
-          <label for="irpj">IRPJ efetivo sobre a receita (%)</label>
-          <input type="number" id="irpj" step="0.01" min="0">
+          <label for="irpj">IRPJ efetivo (%) <span class="locked-badge">🔒 fixado por lei</span></label>
+          <input type="number" id="irpj" step="0.01" min="0" readonly>
         </div>
         <div class="field">
-          <label for="csll">CSLL efetivo sobre a receita (%)</label>
-          <input type="number" id="csll" step="0.01" min="0">
+          <label for="csll">CSLL efetivo (%) <span class="locked-badge">🔒 fixado por lei</span></label>
+          <input type="number" id="csll" step="0.01" min="0" readonly>
         </div>
       </div>
-      <p class="field-hint">Não considera o adicional de 10% de IRPJ sobre a parcela do lucro presumido que exceder R$ 20.000/mês — confira com seu contador se o volume do produto se aproxima desse limite.</p>
+      <p class="field-hint" id="regimeHint"></p>
     </div>
 
     <div class="card">
@@ -358,7 +366,10 @@
 <script>
 const custoInput = document.getElementById('custo');
 const margemInput = document.getElementById('margem');
+const regimeSelect = document.getElementById('regime');
+const atividadeField = document.getElementById('atividadeField');
 const segmentoSelect = document.getElementById('segmento');
+const regimeHintEl = document.getElementById('regimeHint');
 const irpjInput = document.getElementById('irpj');
 const csllInput = document.getElementById('csll');
 const cbsInput = document.getElementById('cbs');
@@ -377,16 +388,29 @@ const PRESUNCOES = {
   comercio: { irpj: 8 * 0.15, csll: 12 * 0.09 },
   servicos: { irpj: 32 * 0.15, csll: 32 * 0.09 },
 };
+const REAL_RATES = { irpj: 15, csll: 9 };
 
 function aplicarSegmento() {
-  const val = segmentoSelect.value;
-  if (val === 'personalizado') return;
-  const p = PRESUNCOES[val];
+  const p = PRESUNCOES[segmentoSelect.value];
   irpjInput.value = p.irpj.toFixed(2);
   csllInput.value = p.csll.toFixed(2);
 }
+
+function aplicarRegime() {
+  if (regimeSelect.value === 'real') {
+    atividadeField.style.display = 'none';
+    irpjInput.value = REAL_RATES.irpj.toFixed(2);
+    csllInput.value = REAL_RATES.csll.toFixed(2);
+    regimeHintEl.textContent = 'Alíquotas do Lucro Real (Lei 9.249/95): 15% de IRPJ + 9% de CSLL sobre o lucro da operação — aqui, a margem do produto. Não considera o adicional de 10% de IRPJ sobre a parcela do lucro que exceder R$ 20.000/mês.';
+  } else {
+    atividadeField.style.display = 'block';
+    aplicarSegmento();
+    regimeHintEl.textContent = 'Presunção do Lucro Presumido (Lei 9.249/95) aplicada sobre a receita. Não considera o adicional de 10% de IRPJ sobre a parcela do lucro presumido que exceder R$ 20.000/mês — confira com seu contador se o volume do produto se aproxima desse limite.';
+  }
+}
+regimeSelect.addEventListener('change', aplicarRegime);
 segmentoSelect.addEventListener('change', aplicarSegmento);
-aplicarSegmento();
+aplicarRegime();
 
 temIsCheckbox.addEventListener('change', () => {
   isField.style.display = temIsCheckbox.checked ? 'block' : 'none';
@@ -414,21 +438,31 @@ function calcular() {
     return;
   }
 
-  const fatorDentro = 1 - (irpjPct + csllPct) / 100;
-  if (fatorDentro <= 0) {
+  const irpjCsllFrac = (irpjPct + csllPct) / 100;
+  if (irpjCsllFrac >= 1) {
     errorEl.textContent = 'IRPJ + CSLL somados não podem chegar a 100% ou mais — não é possível precificar assim.';
     errorEl.style.display = 'block';
     return;
   }
 
   const margemValor = custo * (margemPct / 100);
-  const custoMaisMargem = custo + margemValor;
+  const regime = regimeSelect.value;
+  let precoBase, irpjValor, csllValor;
 
-  // Preço base: o que resta após deduzir IRPJ/CSLL (tributos "por dentro", % da receita)
-  // precisa cobrir custo + margem.
-  const precoBase = custoMaisMargem / fatorDentro;
-  const irpjValor = precoBase * (irpjPct / 100);
-  const csllValor = precoBase * (csllPct / 100);
+  if (regime === 'real') {
+    // Lucro Real tributa o lucro de fato (aqui, a margem do produto) — só a margem
+    // precisa ser "regrossada" pra sobrar líquida depois do IRPJ/CSLL.
+    const margemBruta = margemValor / (1 - irpjCsllFrac);
+    precoBase = custo + margemBruta;
+    irpjValor = margemBruta * (irpjPct / 100);
+    csllValor = margemBruta * (csllPct / 100);
+  } else {
+    // Lucro Presumido tributa a receita (presunção sobre o preço de venda todo).
+    const custoMaisMargem = custo + margemValor;
+    precoBase = custoMaisMargem / (1 - irpjCsllFrac);
+    irpjValor = precoBase * (irpjPct / 100);
+    csllValor = precoBase * (csllPct / 100);
+  }
 
   // IS integra a base do CBS/IBS (calculado primeiro, "por fora" do preço base)
   const isValor = precoBase * (isPct / 100);
@@ -442,11 +476,12 @@ function calcular() {
   precoFinalEl.textContent = formatBRL(precoFinal);
   cargaTotalEl.textContent = `Carga tributária total: ${cargaTotalPct.toFixed(2)}% do preço final · Margem líquida garantida: ${formatBRL(margemValor)}`;
 
+  const regimeLabel = regime === 'real' ? 'Lucro Real' : 'Presumido';
   const rows = [
     ['Preço de custo', formatBRL(custo), ''],
     [`Margem sobre custo`, formatBRL(margemValor), 'add'],
-    [`IRPJ (Presumido)`, formatBRL(irpjValor), 'add', irpjPct],
-    [`CSLL (Presumido)`, formatBRL(csllValor), 'add', csllPct],
+    [`IRPJ (${regimeLabel})`, formatBRL(irpjValor), 'add', irpjPct],
+    [`CSLL (${regimeLabel})`, formatBRL(csllValor), 'add', csllPct],
     ['= Preço base (antes de CBS/IBS)', formatBRL(precoBase), 'subtotal'],
   ];
   if (isPct > 0) {
