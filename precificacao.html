@@ -304,7 +304,7 @@
     </div>
 
     <div class="card">
-      <p class="card-title">2. Tributos embutidos no preço (IRPJ/CSLL + ICMS)</p>
+      <p class="card-title">2. Tributos e despesas embutidos no preço</p>
       <div class="field">
         <label for="regime">Regime tributário</label>
         <select id="regime">
@@ -330,10 +330,21 @@
         </div>
       </div>
       <p class="field-hint" id="regimeHint"></p>
-      <div class="field" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-        <label for="icms">ICMS sobre a venda (%)</label>
-        <input type="number" id="icms" step="0.01" min="0" placeholder="0,00">
-        <p class="field-hint">Ainda vigente hoje (só é substituído pelo IBS entre 2029 e 2033). Varia por estado, produto e benefícios fiscais — ex.: bar/restaurante no RN, com crédito presumido de 13%, fica com carga líquida de ICMS de ~4%. Preencha 0 se não incidir (ex.: serviço tributado só por ISS, fora do escopo desta calculadora).</p>
+      <div class="field-row" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <div class="field">
+          <label for="icms">ICMS sobre a venda (%)</label>
+          <input type="number" id="icms" step="0.01" min="0" placeholder="0,00">
+        </div>
+        <div class="field">
+          <label for="iss">ISS sobre a venda (%)</label>
+          <input type="number" id="iss" step="0.01" min="0" placeholder="0,00">
+        </div>
+      </div>
+      <p class="field-hint">Ambos ainda vigentes hoje (substituídos pelo IBS entre 2029 e 2033). ICMS pra produto, ISS pra serviço — preencha só o que se aplica ao item, deixe o outro em 0. Variam por estado/município e por benefícios fiscais — ex.: bar/restaurante no RN, com crédito presumido de 13% de ICMS, fica com carga líquida de ~4%.</p>
+      <div class="field" style="margin-top: 14px;">
+        <label for="cartao">Taxa de cartão/maquininha sobre a venda (%)</label>
+        <input type="number" id="cartao" step="0.01" min="0" placeholder="0,00">
+        <p class="field-hint">Não é tributo, mas reduz o que sobra da venda do mesmo jeito — por isso entra na conta pra achar o lucro real. Varia por operadora e forma de pagamento (débito, crédito à vista ou parcelado); use a taxa negociada com a sua maquininha.</p>
       </div>
     </div>
 
@@ -425,6 +436,8 @@ const regimeHintEl = document.getElementById('regimeHint');
 const irpjInput = document.getElementById('irpj');
 const csllInput = document.getElementById('csll');
 const icmsInput = document.getElementById('icms');
+const issInput = document.getElementById('iss');
+const cartaoInput = document.getElementById('cartao');
 const categoriaSelect = document.getElementById('categoria');
 const cbsInput = document.getElementById('cbs');
 const ibsInput = document.getElementById('ibs');
@@ -521,6 +534,8 @@ function calcular() {
   const irpjPct = parseFloat(irpjInput.value) || 0;
   const csllPct = parseFloat(csllInput.value) || 0;
   const icmsPct = parseFloat(icmsInput.value) || 0;
+  const issPct = parseFloat(issInput.value) || 0;
+  const cartaoPct = parseFloat(cartaoInput.value) || 0;
   const reducao = REDUCOES[categoriaSelect.value].pct;
   const cbsPct = (parseFloat(cbsInput.value) || 0) * (1 - reducao);
   const ibsPct = (parseFloat(ibsInput.value) || 0) * (1 - reducao);
@@ -533,32 +548,33 @@ function calcular() {
   }
 
   const irpjCsllFrac = (irpjPct + csllPct) / 100;
-  const icmsFrac = icmsPct / 100;
+  // ICMS, ISS e taxa de cartão incidem todos sobre a receita de venda (não sobre o
+  // lucro), então entram juntos no mesmo "bolso" de deduções sobre a receita.
+  const receitaFrac = (icmsPct + issPct + cartaoPct) / 100;
 
   const margemValor = custo * (margemPct / 100);
   const regime = regimeSelect.value;
-  let precoBase, irpjValor, csllValor, icmsValor;
+  let precoBase, irpjValor, csllValor;
 
   if (regime === 'real') {
-    // Lucro Real tributa o lucro de fato (aqui, a margem do produto). ICMS incide
-    // sobre a receita toda, então reduz o que sobra pra cobrir custo + lucro —
-    // por isso é extraído separadamente, antes do IRPJ/CSLL entrarem na conta.
+    // Lucro Real tributa o lucro de fato (aqui, a margem do produto). ICMS/ISS/cartão
+    // incidem sobre a receita toda, então reduzem o que sobra pra cobrir custo + lucro —
+    // por isso são extraídos separadamente, antes do IRPJ/CSLL entrarem na conta.
     if (irpjCsllFrac >= 1) {
       errorEl.textContent = 'IRPJ + CSLL somados não podem chegar a 100% ou mais — não é possível precificar assim.';
       errorEl.style.display = 'block';
       return;
     }
     const lucroBruto = margemValor / (1 - irpjCsllFrac);
-    precoBase = (custo + lucroBruto) / (1 - icmsFrac);
+    precoBase = (custo + lucroBruto) / (1 - receitaFrac);
     irpjValor = lucroBruto * (irpjPct / 100);
     csllValor = lucroBruto * (csllPct / 100);
-    icmsValor = precoBase * icmsFrac;
   } else {
-    // Lucro Presumido: IRPJ/CSLL e ICMS incidem todos sobre a mesma base (a receita
-    // de venda), então entram juntos no mesmo divisor.
-    const fatorDentro = 1 - irpjCsllFrac - icmsFrac;
+    // Lucro Presumido: IRPJ/CSLL, ICMS, ISS e cartão incidem todos sobre a mesma base
+    // (a receita de venda), então entram juntos no mesmo divisor.
+    const fatorDentro = 1 - irpjCsllFrac - receitaFrac;
     if (fatorDentro <= 0) {
-      errorEl.textContent = 'Os tributos embutidos somados não podem chegar a 100% ou mais — não é possível precificar assim.';
+      errorEl.textContent = 'Os tributos e despesas embutidos somados não podem chegar a 100% ou mais — não é possível precificar assim.';
       errorEl.style.display = 'block';
       return;
     }
@@ -566,8 +582,11 @@ function calcular() {
     precoBase = custoMaisMargem / fatorDentro;
     irpjValor = precoBase * (irpjPct / 100);
     csllValor = precoBase * (csllPct / 100);
-    icmsValor = precoBase * icmsFrac;
   }
+
+  const icmsValor = precoBase * (icmsPct / 100);
+  const issValor = precoBase * (issPct / 100);
+  const cartaoValor = precoBase * (cartaoPct / 100);
 
   // IS integra a base do CBS/IBS (calculado primeiro, "por fora" do preço base)
   const isValor = precoBase * (isPct / 100);
@@ -576,7 +595,7 @@ function calcular() {
   const ibsValor = baseCbsIbs * (ibsPct / 100);
 
   const precoFinal = baseCbsIbs + cbsValor + ibsValor;
-  const totalTributos = precoFinal - custo - margemValor;
+  const totalTributos = irpjValor + csllValor + icmsValor + issValor + isValor + cbsValor + ibsValor;
   const cargaTotalPct = (totalTributos / precoFinal) * 100;
   const lucroPct = (margemValor / precoFinal) * 100;
 
@@ -596,6 +615,12 @@ function calcular() {
   if (icmsPct > 0) {
     rows.push(['ICMS', formatBRL(icmsValor), 'add', icmsPct]);
   }
+  if (issPct > 0) {
+    rows.push(['ISS', formatBRL(issValor), 'add', issPct]);
+  }
+  if (cartaoPct > 0) {
+    rows.push(['Taxa de cartão', formatBRL(cartaoValor), 'add', cartaoPct]);
+  }
   rows.push(['= Preço base (antes de CBS/IBS)', formatBRL(precoBase), 'subtotal']);
   if (isPct > 0) {
     rows.push(['Imposto Seletivo (IS)', formatBRL(isValor), 'add', isPct]);
@@ -610,14 +635,19 @@ function calcular() {
     return `<li class="${cls || ''}"><span class="k">${k}${pctSpan}</span><span class="v">${v}</span></li>`;
   }).join('');
 
-  const recebidoLiquido = precoFinal - totalTributos; // = custo + margemValor
+  const recebidoLiquido = precoFinal - totalTributos - cartaoValor; // = custo + margemValor
   const rowsReverso = [
     ['Preço de venda', formatBRL(precoFinal), ''],
     ['Total de tributos pagos sobre a venda', formatBRL(totalTributos), 'deduct'],
-    ['= Recebido líquido de tributos', formatBRL(recebidoLiquido), 'subtotal'],
+  ];
+  if (cartaoPct > 0) {
+    rowsReverso.push(['Taxa de cartão (despesa, não é tributo)', formatBRL(cartaoValor), 'deduct']);
+  }
+  rowsReverso.push(
+    ['= Recebido líquido', formatBRL(recebidoLiquido), 'subtotal'],
     ['Custo de compra', formatBRL(custo), 'deduct'],
     ['= Lucro líquido real', formatBRL(margemValor), 'total'],
-  ];
+  );
   breakdownReversoEl.innerHTML = rowsReverso.map(([k, v, cls]) => {
     return `<li class="${cls || ''}"><span class="k">${k}</span><span class="v">${v}</span></li>`;
   }).join('');
