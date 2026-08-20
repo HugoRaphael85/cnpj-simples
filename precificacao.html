@@ -158,6 +158,47 @@
 
   #isField { display: none; margin-top: 14px; }
 
+  .insumo-row { padding: 12px 0; border-bottom: 1px dashed var(--border); }
+  .insumo-row:first-child { padding-top: 0; }
+  .insumo-row:last-child { border-bottom: none; }
+  .insumo-nome {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font-family: inherit;
+  }
+  .insumo-fields { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .insumo-fields input[type="number"] {
+    flex: 1;
+    min-width: 92px;
+    padding: 9px 10px;
+    font-size: 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+  }
+  .insumo-custo { min-width: 80px; text-align: right; font-weight: 700; font-size: 14px; color: var(--navy); flex-shrink: 0; }
+  .insumo-remove {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 8px;
+    background: var(--red-bg);
+    color: var(--red-text);
+    border: 1px solid var(--red-border);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .insumo-remove:hover { background: var(--red-border); }
+
   button {
     padding: 14px 22px;
     font-size: 15px;
@@ -292,10 +333,22 @@
     </div>
 
     <div class="card">
+      <p class="card-title">Ficha técnica do prato (opcional)</p>
+      <p class="field-hint" style="margin: 0 0 14px;">Pra pratos com vários insumos: liste cada um, o custo do prato é somado automaticamente. Use a mesma unidade em "qtd. comprada" e "qtd. usada" (ex.: tudo em gramas, tudo em ml, ou em unidades). Deixe vazio se preferir digitar o custo direto.</p>
+      <div id="insumosList"></div>
+      <button type="button" id="btnAddInsumo" style="width: auto; padding: 10px 18px; font-size: 13.5px; margin-top: 6px;">+ Adicionar insumo</button>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);">
+        <span style="font-size: 12px; font-weight: 700; color: var(--navy-light); text-transform: uppercase; letter-spacing: 0.4px;">Custo total dos insumos</span>
+        <span id="custoTotalInsumos" style="font-size: 20px; font-weight: 800; color: var(--navy);">R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="card">
       <p class="card-title">1. Produto</p>
       <div class="field">
         <label for="custo">Preço de custo (R$)</label>
         <input type="number" id="custo" placeholder="0,00" min="0" step="0.01">
+        <p class="field-hint" id="custoHint" style="display: none;">Calculado automaticamente pela ficha técnica acima. Remova os insumos de lá pra editar este campo manualmente.</p>
       </div>
       <div class="field">
         <label for="margem">Margem de lucro sobre o custo (%)</label>
@@ -427,6 +480,10 @@
 </main>
 
 <script>
+const insumosListEl = document.getElementById('insumosList');
+const btnAddInsumo = document.getElementById('btnAddInsumo');
+const custoTotalInsumosEl = document.getElementById('custoTotalInsumos');
+const custoHintEl = document.getElementById('custoHint');
 const custoInput = document.getElementById('custo');
 const margemInput = document.getElementById('margem');
 const regimeSelect = document.getElementById('regime');
@@ -524,6 +581,56 @@ atualizarReducao();
 function formatBRL(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
+let insumoIdCounter = 0;
+
+function criarLinhaInsumo() {
+  insumoIdCounter++;
+  const row = document.createElement('div');
+  row.className = 'insumo-row';
+  row.dataset.id = insumoIdCounter;
+  row.innerHTML = `
+    <input type="text" class="insumo-nome" placeholder="Nome do insumo (ex: filé mignon)">
+    <div class="insumo-fields">
+      <input type="number" class="insumo-preco" placeholder="Preço pago (R$)" step="0.01" min="0">
+      <input type="number" class="insumo-qtdcompra" placeholder="Qtd. comprada" step="0.01" min="0">
+      <input type="number" class="insumo-qtduso" placeholder="Qtd. usada" step="0.01" min="0">
+      <span class="insumo-custo">R$ 0,00</span>
+      <button type="button" class="insumo-remove" aria-label="Remover insumo">×</button>
+    </div>
+  `;
+  insumosListEl.appendChild(row);
+  row.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', recalcularInsumos));
+  row.querySelector('.insumo-remove').addEventListener('click', () => {
+    row.remove();
+    recalcularInsumos();
+  });
+}
+
+function recalcularInsumos() {
+  let total = 0;
+  insumosListEl.querySelectorAll('.insumo-row').forEach((row) => {
+    const preco = parseFloat(row.querySelector('.insumo-preco').value) || 0;
+    const qtdCompra = parseFloat(row.querySelector('.insumo-qtdcompra').value) || 0;
+    const qtdUso = parseFloat(row.querySelector('.insumo-qtduso').value) || 0;
+    const custoInsumo = qtdCompra > 0 ? (preco / qtdCompra) * qtdUso : 0;
+    row.querySelector('.insumo-custo').textContent = formatBRL(custoInsumo);
+    total += custoInsumo;
+  });
+  custoTotalInsumosEl.textContent = formatBRL(total);
+
+  const hasRows = insumosListEl.children.length > 0;
+  if (hasRows) {
+    custoInput.value = total.toFixed(2);
+    custoInput.readOnly = true;
+    custoHintEl.style.display = 'block';
+  } else {
+    custoInput.readOnly = false;
+    custoHintEl.style.display = 'none';
+  }
+}
+
+btnAddInsumo.addEventListener('click', criarLinhaInsumo);
 
 function calcular() {
   errorEl.style.display = 'none';
