@@ -391,7 +391,7 @@
           <div class="stat-value" id="precoFinal">R$ 0,00</div>
         </div>
         <div class="stat-box lucro">
-          <div class="stat-label">Lucro da operação</div>
+          <div class="stat-label">Lucro líquido real</div>
           <div class="stat-value" id="lucroOperacao">R$ 0,00</div>
           <div class="stat-sub" id="lucroPctSub"></div>
         </div>
@@ -402,6 +402,8 @@
         </div>
       </div>
       <ul class="breakdown" id="breakdown"></ul>
+      <p class="card-title" style="margin-top: 22px;">Do preço de venda até o que sobra pra você</p>
+      <ul class="breakdown" id="breakdownReverso"></ul>
     </div>
 
     <div class="app-footer">
@@ -442,6 +444,7 @@ const lucroPctSubEl = document.getElementById('lucroPctSub');
 const cargaTotalValueEl = document.getElementById('cargaTotalValue');
 const cargaTotalSubEl = document.getElementById('cargaTotalSub');
 const breakdownEl = document.getElementById('breakdown');
+const breakdownReversoEl = document.getElementById('breakdownReverso');
 
 const PRESUNCOES = {
   comercio: { irpj: 8 * 0.15, csll: 12 * 0.09 },
@@ -605,6 +608,18 @@ function calcular() {
   breakdownEl.innerHTML = rows.map(([k, v, cls, pct]) => {
     const pctSpan = pct ? `<span class="pct">(${pct.toFixed(2)}%)</span>` : '';
     return `<li class="${cls || ''}"><span class="k">${k}${pctSpan}</span><span class="v">${v}</span></li>`;
+  }).join('');
+
+  const recebidoLiquido = precoFinal - totalTributos; // = custo + margemValor
+  const rowsReverso = [
+    ['Preço de venda', formatBRL(precoFinal), ''],
+    ['Total de tributos pagos sobre a venda', formatBRL(totalTributos), 'deduct'],
+    ['= Recebido líquido de tributos', formatBRL(recebidoLiquido), 'subtotal'],
+    ['Custo de compra', formatBRL(custo), 'deduct'],
+    ['= Lucro líquido real', formatBRL(margemValor), 'total'],
+  ];
+  breakdownReversoEl.innerHTML = rowsReverso.map(([k, v, cls]) => {
+    return `<li class="${cls || ''}"><span class="k">${k}</span><span class="v">${v}</span></li>`;
   }).join('');
 
   resultCard.style.display = 'block';
