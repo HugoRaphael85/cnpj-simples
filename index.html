@@ -381,6 +381,8 @@
     background: var(--card);
   }
   .cnd-link:hover { background: var(--bg); border-color: var(--navy-light); }
+  .cnd-link.copied { color: var(--green-text); border-color: var(--green-border); background: var(--green-bg); }
+  .cnd-hint { font-size: 11.5px; color: var(--muted); margin: 10px 0 0; line-height: 1.45; }
 
   .info-grid { display: grid; grid-template-columns: auto 1fr; gap: 11px 14px; font-size: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
   .info-grid dt { color: var(--muted); }
@@ -554,6 +556,7 @@
             <div class="cnd-title">Regularidade fiscal — Certidões</div>
             <p class="cnd-note">Não há consulta pública automática de débitos por CNPJ. As certidões são emitidas nos portais oficiais de cada órgão: a federal costuma sair só com CNPJ + captcha, mas <strong>vários portais estaduais e municipais exigem login com certificado digital (e-CNPJ)</strong>. Os links já apontam para o órgão da localização da empresa; pode ser preciso navegar até "Certidões" e os endereços mudam sem aviso.</p>
             <div class="cnd-list" id="cndList"></div>
+            <p class="cnd-hint">Ao abrir um portal, o CNPJ desta consulta é copiado automaticamente — é só colar (Ctrl+V ou ⌘V) no campo de consulta.</p>
           </div>
         </div>
       </div>
@@ -1065,6 +1068,26 @@ function renderCnd(data) {
 
   cndBlock.style.display = 'block';
 }
+
+// Ao abrir qualquer portal de certidão, copia o CNPJ da consulta pro
+// clipboard — os portais não aceitam CNPJ pré-preenchido por URL, então
+// o usuário só cola (Ctrl+V) no campo. O link segue abrindo em nova aba.
+cndList.addEventListener('click', (e) => {
+  const link = e.target.closest('.cnd-link');
+  if (!link || !lastData) return;
+  const digits = (lastData.cnpj || '').replace(/\D/g, '');
+  if (!digits) return;
+  copyText(digits);
+  const original = link.dataset.cta || link.textContent;
+  link.dataset.cta = original;
+  link.textContent = 'CNPJ copiado ✓';
+  link.classList.add('copied');
+  clearTimeout(link._cndTimer);
+  link._cndTimer = setTimeout(() => {
+    link.textContent = original;
+    link.classList.remove('copied');
+  }, 2500);
+});
 
 function renderResult(data, regime) {
   lastData = data;
