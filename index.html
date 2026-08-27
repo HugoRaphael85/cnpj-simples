@@ -334,6 +334,54 @@
     display: none;
   }
 
+  .cnd-block {
+    display: none;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .cnd-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--navy-light);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .cnd-note {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0 0 14px;
+  }
+  .cnd-list { display: flex; flex-direction: column; gap: 8px; }
+  .cnd-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+  }
+  .cnd-row > div { min-width: 0; }
+  .cnd-esfera { display: block; font-size: 13px; font-weight: 700; color: var(--text); }
+  .cnd-desc { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .cnd-link {
+    flex-shrink: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--navy-light);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    white-space: nowrap;
+    background: var(--card);
+  }
+  .cnd-link:hover { background: var(--bg); border-color: var(--navy-light); }
+
   .info-grid { display: grid; grid-template-columns: auto 1fr; gap: 11px 14px; font-size: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
   .info-grid dt { color: var(--muted); }
   .info-grid dd { margin: 0; font-weight: 600; text-align: right; }
@@ -501,6 +549,12 @@
           </div>
 
           <dl class="info-grid" id="infoGrid"></dl>
+
+          <div class="cnd-block" id="cndBlock">
+            <div class="cnd-title">Regularidade fiscal — Certidões</div>
+            <p class="cnd-note">Não há consulta pública automática de débitos por CNPJ. As certidões são emitidas nos portais oficiais de cada órgão: a federal costuma sair só com CNPJ + captcha, mas <strong>vários portais estaduais e municipais exigem login com certificado digital (e-CNPJ)</strong>. Os links já apontam para o órgão da localização da empresa; pode ser preciso navegar até "Certidões" e os endereços mudam sem aviso.</p>
+            <div class="cnd-list" id="cndList"></div>
+          </div>
         </div>
       </div>
 
@@ -564,6 +618,8 @@ const clearHistoryBtn = document.getElementById('clearHistory');
 const hybridChip = document.getElementById('hybridChip');
 const hybridBlock = document.getElementById('hybridBlock');
 const hybridSelect = document.getElementById('hybridSelect');
+const cndBlock = document.getElementById('cndBlock');
+const cndList = document.getElementById('cndList');
 
 const tabSingleBtn = document.getElementById('tabSingle');
 const tabBatchBtn = document.getElementById('tabBatch');
@@ -862,6 +918,154 @@ function getRegime(data) {
   return { label: 'Regime não informado', style: 'neutral', since: null, source: 'unknown', elegivelHibrido: false };
 }
 
+const CND_FEDERAL_URL = 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir';
+
+// Portais de emissão de Certidão Negativa de Débitos estaduais (SEFAZ de cada UF).
+// Endereços oficiais podem ser atualizados sem aviso; quando não houver link direto,
+// cai num a busca pelo portal correto.
+const CND_ESTADUAL_URLS = {
+  AC: 'https://sefaznet.ac.gov.br/sefazonline/servlet/hpapresentcertidaonegativa',
+  AL: 'https://sfz-cnd-frontend.sefaz.al.gov.br/',
+  AM: 'https://sistemas.sefaz.am.gov.br/CertidaoInternet/',
+  AP: 'https://www.sefaz.ap.gov.br/',
+  BA: 'https://sistemas.sefaz.ba.gov.br/sistemas/mfd/CertidaoNegativa/',
+  CE: 'https://servicos.sefaz.ce.gov.br/internet/download/cnd/consulta_cnd.asp',
+  DF: 'https://ww1.receita.fazenda.df.gov.br/cidadao/certidoes/Nprbi',
+  ES: 'https://internet.sefaz.es.gov.br/agenciavirtual/area_publica/cnd/index.php',
+  GO: 'https://certidoes.economia.go.gov.br/',
+  MA: 'https://sistemas1.sefaz.ma.gov.br/portalsefaz/jsp/consultacertidao/consultaCertidao.jsf',
+  MG: 'https://www2.fazenda.mg.gov.br/sol/ctrl/SOL/CDT/SERVICO_829?ACAO=INICIAR',
+  MS: 'https://www.dfe.ms.gov.br/certidoes/',
+  MT: 'https://www.sefaz.mt.gov.br/',
+  PA: 'https://app.sefa.pa.gov.br/certidao-web/',
+  PB: 'https://www.sefaz.pb.gov.br/servirtual/certidoes/emissao-de-certidao-de-debitos-empresa',
+  PE: 'https://efisco.sefaz.pe.gov.br/sfi_trb_gcd/PRManterCertidaoNegativaDebitoInternet',
+  PI: 'https://portaldacnd.sefaz.pi.gov.br/',
+  PR: 'https://www.cdw.fazenda.pr.gov.br/cdw/emissao/certidaoAutomatica',
+  RJ: 'https://www4.fazenda.rj.gov.br/certidao-fiscal-eletronica/pages/publico/emitirCertidao.jsf',
+  RN: 'https://uvt.sefaz.rn.gov.br/#/services/certidao-negativa/emitir',
+  RO: 'https://portalcontribuinte.sefin.ro.gov.br/',
+  RR: 'https://portaldocontribuinte.sefaz.rr.gov.br/',
+  RS: 'https://www.sefaz.rs.gov.br/certidao/emissao-certidao.aspx',
+  SC: 'https://certidao.sef.sc.gov.br/',
+  SE: 'https://portalcontribuinte.sefaz.se.gov.br/',
+  SP: 'https://www10.fazenda.sp.gov.br/CertidaoNegativaDeb/Pages/EmissaoCertidaoNegativa.aspx',
+  TO: 'https://apps.sefaz.to.gov.br/portal-servicos-frontend/#/certidao',
+};
+
+// Portais de Certidão Negativa de Débitos municipais das 26 capitais + DF,
+// indexados pelo código IBGE do município (campo codigo_municipio_ibge da BrasilAPI).
+// Fora das capitais não há registro central de portais, então cai numa busca.
+const CND_MUNICIPAL_CAPITAIS = {
+  1200401: 'https://www.ac.gov.br/servico/certidao-negativa-de-debito-prefeitura-de-rio-branco', // Rio Branco/AC
+  2704302: 'https://www.online.maceio.al.gov.br/n/guias/certidao.html',                          // Maceió/AL
+  1600303: 'https://macapa.ap.gov.br/impressao-de-certidao-negativa/',                           // Macapá/AP
+  1302603: 'https://semefatende.manaus.am.gov.br/cidadao/certidoes/',                            // Manaus/AM
+  2927408: 'https://www.sefaz.salvador.ba.gov.br/certidoes',                                     // Salvador/BA
+  2304400: 'https://grpfordam.sefin.fortaleza.ce.gov.br/grpfor/pagesPublic/certidoes/emitirCertidao.seam', // Fortaleza/CE
+  5300108: 'https://ww1.receita.fazenda.df.gov.br/cidadao/certidoes/Nprbi',                      // Brasília/DF
+  3205309: 'https://tributario.vitoria.es.gov.br/Servicos/CertidaoNegativa/CertidaoNegativa.aspx', // Vitória/ES
+  5208707: 'https://www.goiania.go.gov.br/sing_servicos/certidao-negativa-de-debitos-iptu-itu-taxas/', // Goiânia/GO
+  2111300: 'https://stm.semfaz.saoluis.ma.gov.br/credenciamento/jsp/emissaoCertidao/emissaoPublicaCertidao.jsf', // São Luís/MA
+  5103403: 'https://cuiaba.mt.gov.br/servicos/certidoes',                                        // Cuiabá/MT
+  5002704: 'https://certidoes.campogrande.ms.gov.br/',                                           // Campo Grande/MS
+  3106200: 'https://cnd.pbh.gov.br/CNDOnline/',                                                  // Belo Horizonte/MG
+  1501402: 'https://sefin.belem.pa.gov.br/areas/certidao-negativa-de-debito/',                   // Belém/PA
+  2507507: 'https://www.joaopessoa.pb.gov.br/pc/',                                                // João Pessoa/PB (Portal do Contribuinte)
+  4106902: 'https://cnd-cidadao.curitiba.pr.gov.br/',                                            // Curitiba/PR
+  2611606: 'https://recifeemdia.recife.pe.gov.br/certidoesNegativasDebitos',                     // Recife/PE
+  2211001: 'https://semf.pmt.pi.gov.br/emissao-de-certidoes/',                                   // Teresina/PI
+  3304557: 'https://carioca.rio/servicos/certidao-negativa-de-debito-nada-consta/',              // Rio de Janeiro/RJ
+  2408102: 'https://www.natal.rn.gov.br/semut',                                                  // Natal/RN
+  4314902: 'https://prefeitura.poa.br/carta-de-servicos/certidoes',                              // Porto Alegre/RS
+  1100205: 'https://www.semfazonline.com/portal/certidoes.action',                               // Porto Velho/RO
+  1400100: 'https://boavista.saatri.com.br/',                                                    // Boa Vista/RR
+  4205407: 'https://www.pmf.sc.gov.br/servicos/index.php?pagina=servpagina&id=3687',             // Florianópolis/SC
+  3550308: 'https://prefeitura.sp.gov.br/web/fazenda/servicos/certidoes',                        // São Paulo/SP
+  2800308: 'https://portaldocontribuinte.aracaju.se.gov.br/',                                    // Aracaju/SE
+  1721000: 'https://certidao.palmas.to.gov.br/',                                                 // Palmas/TO
+};
+
+function googleSearchUrl(query) {
+  return 'https://www.google.com/search?q=' + encodeURIComponent(query);
+}
+
+function cndUrlsFor(data) {
+  const uf = (data.uf || '').toUpperCase();
+  const municipio = data.municipio ? titleCase(data.municipio) : '';
+  const ibge = data.codigo_municipio_ibge;
+
+  const estadual = CND_ESTADUAL_URLS[uf]
+    || googleSearchUrl(`certidão negativa de débitos estaduais SEFAZ ${uf}`.trim());
+
+  const municipalDireto = CND_MUNICIPAL_CAPITAIS[ibge] || null;
+  const municipal = municipalDireto
+    || googleSearchUrl(`certidão negativa de débitos municipais prefeitura de ${municipio} ${uf}`.trim());
+
+  return {
+    uf,
+    municipio,
+    federal: CND_FEDERAL_URL,
+    estadual,
+    estadualDireto: !!CND_ESTADUAL_URLS[uf],
+    municipal,
+    municipalDireto: !!municipalDireto,
+  };
+}
+
+function renderCnd(data) {
+  const {
+    uf, municipio, federal, estadual, estadualDireto, municipal, municipalDireto,
+  } = cndUrlsFor(data);
+  const isDF = uf === 'DF';
+
+  let municipalDesc;
+  if (isDF) {
+    municipalDesc = 'No DF a competência municipal é da própria SEFAZ-DF — mesma certidão da esfera estadual';
+  } else if (municipio) {
+    municipalDesc = municipalDireto
+      ? `Prefeitura de ${municipio}/${uf} — ISS e demais tributos municipais`
+      : `Prefeitura de ${municipio}/${uf} — ISS e tributos municipais (busca no portal da prefeitura)`;
+  } else {
+    municipalDesc = 'Prefeitura do município — ISS e demais tributos municipais';
+  }
+
+  const rows = [
+    [
+      'Federal',
+      'Receita Federal + PGFN — certidão conjunta (tributos federais, contribuições previdenciárias e Dívida Ativa da União)',
+      federal,
+      'Abrir portal ↗',
+    ],
+    [
+      'Estadual',
+      uf
+        ? `SEFAZ-${uf} — débitos de ICMS e demais tributos estaduais`
+        : 'Secretaria de Fazenda estadual — UF não informada',
+      estadual,
+      estadualDireto ? 'Abrir portal ↗' : 'Buscar portal ↗',
+    ],
+    [
+      'Municipal',
+      municipalDesc,
+      municipal,
+      (municipalDireto || isDF) ? 'Abrir portal ↗' : 'Buscar portal ↗',
+    ],
+  ];
+
+  cndList.innerHTML = rows.map(([esfera, desc, url, cta]) => `
+    <div class="cnd-row">
+      <div>
+        <span class="cnd-esfera">${escapeHtml(esfera)}</span>
+        <span class="cnd-desc">${escapeHtml(desc)}</span>
+      </div>
+      <a class="cnd-link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(cta)}</a>
+    </div>
+  `).join('');
+
+  cndBlock.style.display = 'block';
+}
+
 function renderResult(data, regime) {
   lastData = data;
   lastRegime = regime;
@@ -910,6 +1114,8 @@ function renderResult(data, regime) {
     hybridBlock.style.display = 'none';
     hybridChip.style.display = 'none';
   }
+
+  renderCnd(data);
 
   resultEl.style.display = 'block';
 }
@@ -960,6 +1166,14 @@ copyBtn.addEventListener('click', async () => {
   lines.push(
     `Situação cadastral: ${lastData.descricao_situacao_cadastral || '—'}`,
     `Consulta realizada em: ${new Date().toLocaleString('pt-BR')}`,
+  );
+  const cnd = cndUrlsFor(lastData);
+  lines.push(
+    '',
+    'Regularidade fiscal (certidões — emissão manual nos portais oficiais):',
+    `- Federal (RFB/PGFN): ${cnd.federal}`,
+    `- Estadual${cnd.uf ? ` (${cnd.uf})` : ''}: ${cnd.estadual}`,
+    `- Municipal${cnd.municipio ? ` (${cnd.municipio}/${cnd.uf})` : ''}: ${cnd.municipal}`,
     '',
     'GHM Contabilidade — Hugo Raphael Nunes De Santana Oliveira (CRC-RN 010524/O-0)',
   );
